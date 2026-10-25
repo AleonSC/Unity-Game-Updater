@@ -14,7 +14,7 @@ import urllib.request
 
 from .version import __version__
 
-REPO = "AleonSC/Game-Updater"
+REPO = "AleonSC/unity-game-updater"
 LATEST_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 SETUP_NAME = "GameUpdater-Setup.exe"
 INSTALL_MARKER = "install.ini"  # written next to the exe by the installer

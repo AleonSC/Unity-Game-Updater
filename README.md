@@ -48,7 +48,7 @@ GitHub token in **Settings...**: a fine-grained token with read-only access to C
 ## Installing
 
 Download **GameUpdater-Setup.exe** from the latest release
-(https://github.com/AleonSC/Game-Updater/releases/latest). It installs for your user
+(https://github.com/AleonSC/unity-game-updater/releases/latest). It installs for your user
 only (no admin password). When a newer Game Updater is out, a button at the bottom right
 updates it in place. **GameUpdater-portable.zip** runs without installing but can't
 update itself.

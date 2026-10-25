@@ -121,7 +121,7 @@ def run(report_path):
 
     def live_github():
         hub = github.GitHub()
-        head = hub.branch_head("AleonSC/Game-Updater", "main")
+        head = hub.branch_head("AleonSC/unity-game-updater", "main")
         archive = os.path.join(work, "live.zip")
         assert hub.download(head["url"], archive)
         root = sync.unpack(archive, os.path.join(work, "live"))
