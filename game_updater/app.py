@@ -421,7 +421,7 @@ class GameUpdaterApp:
                 self.from_thread(lambda: self._planned(e, found, plan, temp))
             except (github.GitHubError, sync.SyncError, OSError, zipfile.BadZipFile) as err:
                 shutil.rmtree(temp, ignore_errors=True)
-                self.from_thread(lambda: self._update_failed(e, err))
+                self.from_thread(lambda err=err: self._update_failed(e, err))
 
         threading.Thread(target=work, daemon=True).start()
 
@@ -547,7 +547,7 @@ class GameUpdaterApp:
                 path = self_update.download(found)
                 self.from_thread(lambda: (self_update.install(path), self.close()))
             except OSError as err:
-                self.from_thread(lambda: (self.status.set(f"Couldn't download it: {err}"),
+                self.from_thread(lambda err=err: (self.status.set(f"Couldn't download it: {err}"),
                                           self.self_update_btn.config(state="normal")))
 
         threading.Thread(target=work, daemon=True).start()
