@@ -1,0 +1,90 @@
+name: Build Windows app
+
+# Every build gets a version number (1.0.<run number>). Pushes to the default
+# branch also publish it as a GitHub release, which installed copies of the app
+# find and update themselves to.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Set the version
+        shell: pwsh
+        run: |
+          $v = "1.0.${{ github.run_number }}"
+          "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Set-Content game_updater\version.py "__version__ = `"$v`""
+
+      - name: Build the app
+        run: >
+          python -m PyInstaller --noconfirm --onedir --windowed --name GameUpdater
+          --icon assets\icon.ico --add-data "assets;assets" run_game_updater.py
+
+      - name: Self-test the packaged app
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\GameUpdater\GameUpdater.exe -ArgumentList '--selftest', "$PWD\selftest.txt" -Wait -PassThru
+          Get-Content selftest.txt
+          exit $p.ExitCode
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y | Out-Null }
+          & $iscc /Q "/DAppVersion=$env:VERSION" installer\GameUpdater.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Compress-Archive -Path dist\GameUpdater -DestinationPath dist\GameUpdater-portable.zip
+
+      - name: Test the installer
+        shell: pwsh
+        run: |
+          $p = Start-Process dist\GameUpdater-Setup.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NOLAUNCH' -Wait -PassThru
+          if ($p.ExitCode) { throw "installer failed: $($p.ExitCode)" }
+          $app = "$env:LOCALAPPDATA\Programs\GameUpdater"
+          Get-Content "$app\install.ini"
+          $p = Start-Process -FilePath "$app\GameUpdater.exe" -ArgumentList '--selftest', "$PWD\installed.txt" -Wait -PassThru
+          Get-Content installed.txt
+          if ($p.ExitCode) { exit $p.ExitCode }
+          Start-Process "$app\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Wait
+          for ($i = 0; $i -lt 60 -and (Test-Path "$app\GameUpdater.exe"); $i++) { Start-Sleep 1 }
+          if (Test-Path "$app\GameUpdater.exe") { throw "uninstall left the app behind" }
+          "uninstalled cleanly"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GameUpdater-Setup
+          path: dist/GameUpdater-Setup.exe
+
+      - name: Publish a release (default branch only)
+        if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: Game Updater ${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          make_latest: "true"
+          body: |
+            ${{ github.event.head_commit.message }}
+
+            **GameUpdater-Setup.exe** installs it (and updates an installed copy); **GameUpdater-portable.zip** runs without installing.
+          files: |
+            dist/GameUpdater-Setup.exe
+            dist/GameUpdater-portable.zip
