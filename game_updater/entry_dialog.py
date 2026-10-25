@@ -207,6 +207,19 @@ class EntryDialog(tk.Toplevel):
         if problem:
             messagebox.showerror("Add a game", problem, parent=self)
             return
+        better = sync.unity_target(target, v["subfolder"].get())
+        if better and messagebox.askyesno(
+                "Copy into", f"That's a Unity project, so the files would land beside its "
+                f"real {os.path.basename(better)} folder, where Unity ignores them or sees "
+                f"every script twice (and stops compiling).\n\nCopy into\n{better}\n"
+                "instead?", parent=self):
+            target = better
+            v["target"].set(better)
+        if sync.built_game(target) and not messagebox.askyesno(
+                "Copy into", "That folder is a built game (it has UnityPlayer.dll). Scripts "
+                "copied there do nothing until the game is built again in Unity: pick the "
+                "Unity project's folder instead.\n\nKeep this folder anyway?", parent=self):
+            return
         if not os.path.isdir(target) and not messagebox.askyesno(
                 "Add a game", f"“{target}” doesn't exist yet. Create it on the first update?",
                 parent=self):

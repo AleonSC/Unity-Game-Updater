@@ -436,6 +436,7 @@ class GameUpdaterApp:
             shutil.rmtree(temp, ignore_errors=True)
             self._installed(e, found)
             self.status.set(f"{e['name']}: already up to date.")
+            self._check_unity(e)
             self._next_in_queue()
             return
         if self.ask.get() or plan.drastic():
@@ -476,8 +477,34 @@ class GameUpdaterApp:
             self._update_failed(e, error)
             return
         self._installed(e, found)
-        self.status.set(f"{e['name']}: updated ({plan.summary()}).")
+        self.status.set(f"{e['name']}: updated ({plan.summary()})."
+                        + (" Switch to Unity to load the changes." if sync.unity_project(
+                            e["target"]) else ""))
+        self._check_unity(e)
         self._next_in_queue()
+
+    def _check_unity(self, e):
+        """Warn about what stops Unity using the update: a folder outside the
+        project's scripts, or old copies of the scripts elsewhere in the project."""
+        target = e["target"]
+        better = sync.unity_target(target, e.get("subfolder", ""))
+        if better:
+            messagebox.showwarning(
+                "Unity won't see this update",
+                f"{e['name']} is copied into {target}, but in a Unity project the files "
+                f"belong in\n{better}\n\nClick Undo last update to take the misplaced "
+                "copies out again, then Change... and pick that folder.")
+            return
+        dupes = sync.duplicate_scripts(target) if sync.unity_project(target) else []
+        if dupes:
+            shown = "\n".join(dupes[:15]) + (f"\n...and {len(dupes) - 15} more"
+                                               if len(dupes) > 15 else "")
+            messagebox.showwarning(
+                "Old copies of the scripts",
+                f"The project has other copies of {len(dupes)} of these scripts outside "
+                f"{target}:\n\n{shown}\n\nWith two copies Unity can't compile, so the game "
+                "keeps running the old code. Delete those old copies in Unity's Project window "
+                "(after checking they're not something you changed yourself).")
 
     def _installed(self, e, found):
         e["installed"] = {k: found[k] for k in ("version", "date", "message")}

@@ -119,6 +119,24 @@ def run(report_path):
         assert sync.make_plan(src, dst, mirror=True).drastic()
         return "refuses drive tops and personal folders; warns before emptying a folder"
 
+    def unity_checks():
+        project = os.path.join(work, "MyGame")
+        _write(project, {"ProjectSettings/ProjectVersion.txt": "m_EditorVersion: 6000.0",
+                         "Assets/Scripts/Clicker.cs": "new", "Assets/Old/Clicker.cs": "old",
+                         "Assets/Scenes/Main.unity": "scene"})
+        scripts = os.path.join(project, "Assets", "Scripts")
+        assert sync.unity_project(scripts) == project
+        assert sync.unity_target(project, "Assets/Scripts") == scripts
+        assert sync.unity_target(os.path.join(project, "Assets"), "Assets/Scripts") == scripts
+        assert sync.unity_target(scripts, "Assets/Scripts") is None
+        dupes = sync.duplicate_scripts(scripts)
+        assert dupes == [os.path.join("Assets", "Old", "Clicker.cs")], dupes
+        build = os.path.join(work, "Build")
+        _write(build, {"UnityPlayer.dll": "", "Game_Data/x": ""})
+        assert sync.built_game(os.path.join(build, "Game_Data"))
+        assert not sync.built_game(scripts)
+        return "spots the wrong folder in a project, old script copies, and built games"
+
     def live_github():
         hub = github.GitHub()
         head = hub.branch_head("AleonSC/unity-game-updater", "main")
@@ -145,6 +163,7 @@ def run(report_path):
     check("Unity folder sync", unity_mirror)
     check("failed update rolled back", rollback)
     check("safety checks", guards)
+    check("Unity checks", unity_checks)
     check("download from GitHub", live_github)
     check("dark mode", dark_mode)
     shutil.rmtree(work, ignore_errors=True)

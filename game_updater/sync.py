@@ -319,3 +319,77 @@ def undo(data_dir, entry_id):
 
 def forget_backups(data_dir, entry_id):
     shutil.rmtree(_backup_root(data_dir, entry_id), ignore_errors=True)
+
+
+# -------------------------------------------------------------------- Unity
+def unity_project(path):
+    """The Unity project folder that path is in (or is), or None."""
+    path = os.path.abspath(path)
+    while True:
+        if os.path.isdir(os.path.join(path, "Assets")) and \
+                os.path.isdir(os.path.join(path, "ProjectSettings")):
+            return path
+        parent = os.path.dirname(path)
+        if parent == path:
+            return None
+        path = parent
+
+
+def built_game(path):
+    """Whether path is (in) a built Unity game rather than a project."""
+    path = os.path.abspath(path)
+    while True:
+        if os.path.exists(os.path.join(path, "UnityPlayer.dll")) or \
+                os.path.exists(os.path.join(path, "UnityPlayer.so")):
+            return True
+        parent = os.path.dirname(path)
+        if parent == path:
+            return False
+        path = parent
+
+
+def unity_target(target, subfolder):
+    """Where a repo folder like Assets/Scripts belongs in a Unity project.
+
+    If target is the project folder, or its Assets folder, the files would land
+    beside the project's real ones (ignored, or duplicates that stop Unity
+    compiling). Returns the matching folder instead, or None if target is fine.
+    """
+    sub = subfolder.strip().strip("/\\").replace("\\", "/")
+    project = unity_project(target) if os.path.isdir(target) else None
+    if not project or not sub:
+        return None
+    here = os.path.normcase(os.path.abspath(target))
+    if here == os.path.normcase(project):
+        suggestion = os.path.join(project, *sub.split("/"))
+    elif here == os.path.normcase(os.path.join(project, "Assets")) and \
+            sub.lower().startswith("assets/"):
+        suggestion = os.path.join(project, *sub.split("/"))
+    else:
+        return None
+    return os.path.normpath(suggestion)
+
+
+def duplicate_scripts(target):
+    """Scripts elsewhere in the Unity project with the same name as ones in target.
+
+    Two copies of a script means its classes are defined twice, so Unity stops
+    compiling and keeps running the old code. Returns paths relative to the project.
+    """
+    project = unity_project(target)
+    if not project:
+        return []
+    target = os.path.normcase(os.path.abspath(target))
+    ours = set()
+    for here, _, names in os.walk(target):
+        ours.update(n.lower() for n in names if n.lower().endswith(".cs"))
+    found = []
+    for here, dirs, names in os.walk(os.path.join(project, "Assets")):
+        if os.path.normcase(os.path.abspath(here)).startswith(target):
+            dirs[:] = []
+            continue
+        for n in names:
+            if n.lower() in ours:
+                found.append(os.path.relpath(os.path.join(here, n), project))
+    return sorted(found)
+

@@ -40,6 +40,21 @@ backed up in `%APPDATA%\GameUpdater\backups`.
 Unity can stay open while it updates; it picks up the new scripts when you switch back
 to it.
 
+## Unity projects
+
+Point **Copy into** at the folder the files belong in, e.g. for `Assets/Scripts` in the
+repo, your project's `Assets\Scripts` (not the project folder or its `Assets` folder,
+where the scripts would land beside the real ones: Unity either ignores them or sees every
+script twice and stops compiling). Game Updater notices if you pick one of those and
+offers the right folder, warns if the folder is a built game (scripts there do nothing
+until it's rebuilt in Unity), and after each update warns if the project has old copies of
+the same scripts elsewhere, which also stop Unity compiling.
+
+If the game still doesn't change after an update, look at Unity's Console: while there's
+a compile error, Unity keeps running the old code. Unity also only reloads scripts when
+you switch back to it (or press Ctrl+R if *Auto Refresh* is off), and not while it's
+playing.
+
 ## Private repos
 
 Public repos need nothing. For a private repo (or more than 60 checks an hour), add a
